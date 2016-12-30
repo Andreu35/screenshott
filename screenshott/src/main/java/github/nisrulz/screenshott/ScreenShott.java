@@ -16,49 +16,68 @@
 
 package github.nisrulz.screenshott;
 
+import android.app.ProgressDialog;
+import android.content.Intent;
 import android.graphics.Bitmap;
+import android.net.Uri;
 import android.os.Environment;
+import android.support.v7.app.AlertDialog;
+import android.support.v7.app.AppCompatActivity;
 import android.view.View;
+import android.widget.Toast;
+
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 
-/**
- * @author Nishant Srivastava
- */
 public class ScreenShott {
-  private static ScreenShott ourInstance = new ScreenShott();
+    private AppCompatActivity activity;
+    private ProgressDialog dialog;
 
-  public static ScreenShott getInstance() {
-    return ourInstance;
-  }
-
-  private ScreenShott() {
-  }
-
-  public Bitmap takeScreenShotOfRootView(View root_view, String filename) {
-    View rootview = root_view.getRootView();
-    rootview.setDrawingCacheEnabled(true);
-    Bitmap bitmap = rootview.getDrawingCache();
-    saveScreenshot(bitmap, filename);
-    return bitmap;
-  }
-
-  private void saveScreenshot(Bitmap bmp, String filename) {
-    ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-    bmp.compress(Bitmap.CompressFormat.JPEG, 40, bytes);
-    File file = new File(
-        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
-            + "/"
-            + filename
-            + ".jpg");
-    try {
-      file.createNewFile();
-      FileOutputStream outputStream = new FileOutputStream(file);
-      outputStream.write(bytes.toByteArray());
-      outputStream.close();
-    } catch (Exception e) {
-      e.printStackTrace();
+    public ScreenShott(AppCompatActivity activity) {
+        this.activity = activity;
     }
-  }
+
+    public Bitmap takeScreenShotOfRootView(View root_view, String filename) {
+        root_view.setDrawingCacheEnabled(true);
+        Bitmap bitmap = root_view.getDrawingCache();
+        saveScreenshot(bitmap, filename);
+        root_view.destroyDrawingCache();
+        return bitmap;
+    }
+
+    private void saveScreenshot(Bitmap bmp, String filename) {
+        // Added ProgressDialog if device is slow
+        dialog = new ProgressDialog(activity);
+        dialog.setMessage("Saving...please wait.");
+        dialog.show();
+        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+        bmp.compress(Bitmap.CompressFormat.JPEG, 100, bytes);
+        File file = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES) + "/YOUR_DIR");
+        try {
+            // Verify if Directory or File exists.
+            if(!file.exists()) {
+                file.mkdirs();
+            }
+            File fileSaved = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES)
+                    + "/YOUR_DIR/" + filename + "_" + System.currentTimeMillis()+ ".jpg");
+            fileSaved.createNewFile();
+            FileOutputStream outputStream = new FileOutputStream(fileSaved);
+            outputStream.write(bytes.toByteArray());
+            outputStream.close();
+            
+            // Action Media Scanner to reload gallery inmediatelly.
+            Intent mediaScanIntent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+            File f = new File(fileSaved.getPath());
+            Uri contentUri = Uri.fromFile(f);
+            mediaScanIntent.setData(contentUri);
+            activity.sendBroadcast(mediaScanIntent);
+
+            dialog.cancel();
+            Toast.makeText(activity, "Screnshot saved succefully", Toast.LENGTH_LONG).show();
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 }
